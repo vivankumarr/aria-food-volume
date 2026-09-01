@@ -32,6 +32,31 @@ def save_prompt_grid(rect_left, out_path):
     plt.close()
 
 
+def get_plate_prompt(food_mask, food_xy):
+    """ Get a valid point prompt to segment the plate using the food mask and gaze point. """
+    height, width = food_mask.shape
+    u0, v0 = food_xy
+    candidates = []
+
+    # Walk outward from gaze point in 8 directions, find nearest exit from food mask, step a little further
+    for du, dv in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
+        for num_steps in range(1, max(height, width)):
+            u, v = u0 + du * num_steps, v0 + dv * num_steps
+
+            if not (0 <= u < width and 0 <= v < height):
+                break
+            if not food_mask[v, u]:
+                # Step out by 10 pixels to fully clear the food mask
+                u, v = u0 + du * (num_steps + 10), v0 + dv * (num_steps + 10)
+
+                if 0 <= u < width and 0 <= v < height and not food_mask[v, u]:
+                    candidates.append((num_steps * np.hypot(du, dv), (u, v)))
+                break
+    
+    # Simplest plate pixel to return is just the closest one to the food mask
+    return min(candidates)[1] if candidates else None
+
+
 def segment_scan(rectified_left_images, food_prompt_xy, plate_prompt_xy, frames_dir):
     write_frames(rectified_left_images, frames_dir)
     n_keyframes, image_height, image_width = rectified_left_images.shape
@@ -39,6 +64,18 @@ def segment_scan(rectified_left_images, food_prompt_xy, plate_prompt_xy, frames_
     predictor = SAM2VideoPredictor.from_pretrained(config.SAM2_MODEL).cuda()
     # Initialize the frame index, allocate SAM 2 memory bank, etc.
     inference_state = predictor.init_state(video_path=frames_dir, offload_video_to_cpu=True)
+
+    # One forward pass if plate prompt not supplied just to get one food mask and call get_plate_prompt on it
+    if plate_prompt_xy is None:
+        _, _, mask_logits = predictor.add_new_points_or_box(inference_state=inference_state, frame_idx=0, obj_id=FOOD_ID,
+                                                            labels=np.array([1]), points=np.array([food_prompt_xy], dtype=np.int32))
+        plate_prompt_xy = get_plate_prompt((mask_logits[0, 0] > 0.0).cpu().numpy(), food_prompt_xy)
+
+        if plate_prompt_xy is None:
+            raise RuntimeError("No plate pixel found around the gaze point")
+        
+        predictor.reset_state(inference_state)
+
     prompt_points = np.array([food_prompt_xy, plate_prompt_xy], dtype=np.float32)
 
     # Point prompt for food mask, negative click prompt on plate so they don't mix

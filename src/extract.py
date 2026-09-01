@@ -3,6 +3,7 @@ import numpy as np
 from projectaria_tools.core import data_provider
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
 from projectaria_tools.core.image import InterpolationMethod
+from projectaria_tools.core.mps import get_eyegaze_point_at_depth
 import config
 
 sys.path.insert(0, config.DEPTH_FROM_STEREO_DIR)
@@ -96,6 +97,24 @@ def extract_scan(vrs_path, n_keyframes=config.N_KEYFRAMES):
         # Chain poses and get transform from rectified left cam to world for each keyframe
         T_world_rectCam = stereo_utils.compute_T_world_rectCam(T_world_device, T_leftCam_device, R_left_rect)
         keyframe_poses.append(T_world_rectCam.to_matrix())
+
+    # Get gaze prompt for SAM 2 on food item
+    gaze_id = provider.get_stream_id_from_label("eyegaze")
+    gaze = provider.get_eye_gaze_data_by_time_ns(gaze_id, int(keyframe_timestamps_ns[0]), TimeDomain.DEVICE_TIME, TimeQueryOptions.CLOSEST)
+    vio0 = provider.get_vio_high_freq_data_by_time_ns(hf_vio_id, int(keyframe_timestamps_ns[0]), TimeDomain.DEVICE_TIME, TimeQueryOptions.CLOSEST)
+
+    # CPF --> rectified left camera
+    T_rectCam_cpf = (np.linalg.inv(keyframe_poses[0]) @ vio0.transform_odometry_device.to_matrix() @ device_calib.get_transform_device_cpf().to_matrix())
+    
+    if gaze.spatial_gaze_point_valid:
+        p_cpf = np.asarray(gaze.spatial_gaze_point_in_cpf, dtype=float).ravel()
+    else:
+        # Vergence points not recorded for some reason in most files, use 25 cm along gaze ray as the placeholder point, works identically
+        p_cpf = np.asarray(get_eyegaze_point_at_depth(gaze.yaw, gaze.pitch, 0.25), dtype=float).ravel()
+    
+    p_cam = T_rectCam_cpf[:3, :3] @ p_cpf + T_rectCam_cpf[:3, 3]
+    # Perspective projection from rectified left camera to 2D image
+    gaze_xy = (int(round(fx * p_cam[0] / p_cam[2] + cx)), int(round(fy * p_cam[1] / p_cam[2] + cy)))
     
     return {
         "rectified_left_images": rectified_left_images,
@@ -104,5 +123,6 @@ def extract_scan(vrs_path, n_keyframes=config.N_KEYFRAMES):
         "intrinsics": (fx, fy, cx, cy),
         "image_shape": (image_height, image_width),
         "baseline_m": stereo_utils.compute_stereo_baseline(T_leftCam_device, T_rightCam_device),
+        "gaze_xy": gaze_xy,
         "total_distance_m": total_distance
     }

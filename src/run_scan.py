@@ -38,7 +38,9 @@ def main():
     fx = scan["intrinsics"][0]
     keyframe_depths = depth_export.compute_keyframe_depths(scan["rectified_left_images"], scan["rectified_right_images"], scan["baseline_m"], fx)
 
-    food_masks, plate_masks = segment.segment_scan(scan["rectified_left_images"], tuple(args.food_xy), tuple(args.plate_xy), FRAMES_DIR)
+    food_xy = tuple(args.food_xy) if args.food_xy else scan["gaze_xy"]
+    plate_xy = tuple(args.plate_xy) if args.plate_xy else None
+    food_masks, plate_masks = segment.segment_scan(scan["rectified_left_images"], food_xy, plate_xy, FRAMES_DIR)
 
     report = fuse.estimate_volume(keyframe_depths, food_masks, plate_masks, scan["keyframe_poses"], scan["intrinsics"], scan["image_shape"])
 
@@ -55,7 +57,7 @@ def main():
     if args.ground_truth:
         error_ml = report["volume_ml"] - args.ground_truth
         record["error_pct"] = 100 * error_ml / args.ground_truth
-        print(f"Ground Truth {args.ground_truth} mL, Error {error_ml:+.1f} mL ({record["error_pct"]:+.1f}%)")
+        print(f"Ground Truth {args.ground_truth} mL, Error {error_ml:+.1f} mL ({record['error_pct']:+.1f}%)")
 
     with open(f"{RUNS_DIR}/{args.name}.json", "w") as f:
         json.dump(record, f, indent=2)
