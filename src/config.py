@@ -16,8 +16,7 @@ CONTACT_TOLERANCE_MM = 25.0
 PINHOLE_MAX_VERTICES = 20
 PINHOLE_MAX_SPAN_MM = 12.0
 
-# Replace with actual paths used
 DEPTH_FROM_STEREO_DIR = os.environ.get("DEPTH_FROM_STEREO_DIR", "third_party/projectaria_gen2_depth_from_stereo")
 FOUNDATION_STEREO_DIR = DEPTH_FROM_STEREO_DIR + "/FoundationStereo"
-FOUNDATION_STEREO_CKPT = os.environ.get("FOUNDATION_STEREO_CKPT", "checkpoints/23-51-11/model_best_bp2.pth")
+FOUNDATION_STEREO_CKPT = os.environ.get("FOUNDATION_STEREO_CKPT", "checkpoints/model_best_bp2.pth")
 SAM2_MODEL = "facebook/sam2.1-hiera-large"

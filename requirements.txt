@@ -11,4 +11,5 @@ timm
 opencv-python
 imageio
 pillow
+einops
 matplotlib
