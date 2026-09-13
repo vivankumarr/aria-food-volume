@@ -1,3 +1,5 @@
+import os
+
 N_KEYFRAMES = 40  # Number of keyframes from the VRS recording to use in TSDF fusion
 
 # Only consider depth valid in this distance range
