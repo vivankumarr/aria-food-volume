@@ -51,18 +51,6 @@ def main():
     # Export mesh as a PLY file
     mesh_path = f"{RUNS_DIR}/{args.name}.ply"
     report["mesh"].export(mesh_path)
-    np.savez_compressed(
-        f"{RUNS_DIR}/{args.name}_assets.npz",
-        keyframe_poses=scan["keyframe_poses"],
-        T_plane_world=report["T_plane_world"],
-        intrinsics=np.array(scan["intrinsics"], dtype=float),
-        image_shape=np.array(scan["image_shape"], dtype=int),
-        baseline_m=float(scan["baseline_m"]),
-        total_distance_m=float(scan["total_distance_m"]),
-        rectified_left=scan["rectified_left_images"],
-        rectified_right=scan["rectified_right_images"],
-    )
-    print("Wrote figure assets to", f"{RUNS_DIR}/{args.name}_assets.npz")
 
     record = {"name": args.name, "vrs": args.vrs, "volume_ml": report["volume_ml"], "ground_truth_ml": args.ground_truth}
     print(f"Volume: {report['volume_ml']} mL")
