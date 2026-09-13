@@ -1,0 +1,14 @@
+numpy
+torch
+torchvision
+projectaria-tools
+sam2 @ git+https://github.com/facebookresearch/sam2.git
+open3d
+trimesh
+scipy
+omegaconf
+timm
+opencv-python
+imageio
+pillow
+matplotlib
